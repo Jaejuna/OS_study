@@ -31,7 +31,7 @@ void *foo(void *arg)
 
 int main(void)
 {
-    pthread_t tid;
+    pthread_t tid1, tid2;
     
     /*
      * 프로그램 시작 지점에서 공유변수 x 값을 출력해본다.
@@ -41,7 +41,8 @@ int main(void)
      * 서브 스레드를 생성하여 함수 foo()를 실행한다.
      * fork()와 달리 프로세스 내의 모든 스레드는 코드와 데이터를 공유한다.
      */
-    pthread_create(&tid, NULL, foo, NULL);
+    pthread_create(&tid1, NULL, foo, NULL);
+    pthread_create(&tid2, NULL, foo, NULL);
     /*
      * 메인 스레드는 하하하 웃으면서 공유변수 x를 증가시킨다.
      */
@@ -55,7 +56,8 @@ int main(void)
      * 서브 스레드가 끝날 때까지 기다린다.
      * 만일 메인 스레드가 서브 스레드를 기다리지 않고 먼저 종료해버리면 어떻게 될까?
      */
-    pthread_join(tid, NULL);
+    pthread_join(tid1, NULL);
+    pthread_join(tid2, NULL);
     /*
      * 공유변수 x를 마지막으로 출력하고 종료한다.
      */
