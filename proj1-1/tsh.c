@@ -3,6 +3,7 @@
  * 이 프로그램은 한양대학교 ERICA 컴퓨터학부 학생을 위한 교육용으로 제작되었다.
  * 한양대학교 ERICA 학생이 아닌 이는 프로그램을 수정하거나 배포할 수 없다.
  * 프로그램을 수정할 경우 날짜, 학과, 학번, 이름, 수정 내용을 기록한다.
+ * 23/03/29, 프랑스학과, 2017093772, 정재준, 표준 입출력과, 파이프 기능 추가 수정 합니다!
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,20 +25,31 @@
  */
 static void cmdexec(char *cmd)
 {
+    //명령어 인자 받기 위해 캐릭터 포인터 배열 argv 선언
     char *argv[MAX_LINE/2+1];
+    // 카운트 변수 선언
     int argc = 0;
+    // 명령어 스트링 파싱을 위한 캐릭터 포인터 선언
     char *p, *q;
+    // 입출력 리다이랙션 선언, 초기화
     int in_fd = -1, out_fd = -1;
+    // 파이프 기능 문자 추적을 위한 불리안 변수 선언
     bool pipe_found = false;
+    // 파이프의 읽기, 쓰기를 위한 2개 정수를 담을 수 있는 배열 선언
     int pipefd[2];
 
+    // p를 명령어 문자열 시작점을 포인팅, 띄어쓰기 탭 스킵하기
     p = cmd; p += strspn(p, " \t");
+    // p가 null이 되면 do iterator 종료
     do {
+        // 띄어쓰기, 탭 등 특별한 문자 검출
         q = strpbrk(p, " \t\'\"<>|");
         if (q == NULL || *q == ' ' || *q == '\t') {
+            // 특별한 문자열 기준으로 separate
             q = strsep(&p, " \t");
             if (*q) argv[argc++] = q;
         }
+        // 밑으로 standard input/output redirection, pipe handler
         else if (*q == '\'') {
             q = strsep(&p, "\'");
             if (*q) argv[argc++] = q;
@@ -80,6 +92,7 @@ static void cmdexec(char *cmd)
 
     argv[argc] = NULL;
 
+    // pipe 찾으면 pipe(pipfd) 배열에 읽기, 쓰기 저장 
     if (pipe_found) {
         if (pipe(pipefd) < 0) {
             perror("pipe");
@@ -87,8 +100,10 @@ static void cmdexec(char *cmd)
         }
     }
 
+    // 새로운 자식 프로세스 fork로 만들기
     pid_t pid = fork();
 
+    // 자식 프로세스가 execvp 실행, 예외 사항 적용
     if (pid == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
@@ -112,6 +127,7 @@ static void cmdexec(char *cmd)
         exit(EXIT_FAILURE);
     }
 
+    // 입출력 리다이렉션 닫기
     if (in_fd != -1) {
         close(in_fd);
     } 
