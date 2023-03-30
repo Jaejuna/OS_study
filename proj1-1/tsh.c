@@ -24,56 +24,97 @@
  */
 static void cmdexec(char *cmd)
 {
-    char *argv[MAX_LINE/2+1];   /* 명령어 인자를 저장하기 위한 배열 */
-    int argc = 0;               /* 인자의 개수 */
-    char *p, *q;                /* 명령어를 파싱하기 위한 변수 */
+    char *argv[MAX_LINE/2+1];
+    int argc = 0;
+    char *p, *q;
+    int in_fd = -1, out_fd = -1;
+    bool pipe_found = false;
+    int pipefd[2];
 
-    /*
-     * 명령어 앞부분 공백문자를 제거하고 인자를 하나씩 꺼내서 argv에 차례로 저장한다.
-     * 작은 따옴표나 큰 따옴표로 이루어진 문자열을 하나의 인자로 처리한다.
-     */
     p = cmd; p += strspn(p, " \t");
     do {
-        /*
-         * 공백문자, 큰 따옴표, 작은 따옴표가 있는지 검사한다.
-         */ 
-        q = strpbrk(p, " \t\'\"");
-        /*
-         * 공백문자가 있거나 아무 것도 없으면 공백문자까지 또는 전체를 하나의 인자로 처리한다.
-         */
+        q = strpbrk(p, " \t\'\"<>|");
         if (q == NULL || *q == ' ' || *q == '\t') {
             q = strsep(&p, " \t");
             if (*q) argv[argc++] = q;
         }
-        /*
-         * 작은 따옴표가 있으면 그 위치까지 하나의 인자로 처리하고, 
-         * 작은 따옴표 위치에서 두 번째 작은 따옴표 위치까지 다음 인자로 처리한다.
-         * 두 번째 작은 따옴표가 없으면 나머지 전체를 인자로 처리한다.
-         */
         else if (*q == '\'') {
             q = strsep(&p, "\'");
             if (*q) argv[argc++] = q;
             q = strsep(&p, "\'");
             if (*q) argv[argc++] = q;
         }
-        /*
-         * 큰 따옴표가 있으면 그 위치까지 하나의 인자로 처리하고, 
-         * 큰 따옴표 위치에서 두 번째 큰 따옴표 위치까지 다음 인자로 처리한다.
-         * 두 번째 큰 따옴표가 없으면 나머지 전체를 인자로 처리한다.
-         */
-        else {
+        else if (*q == '\"') {
             q = strsep(&p, "\"");
             if (*q) argv[argc++] = q;
             q = strsep(&p, "\"");
             if (*q) argv[argc++] = q;
-        }        
+        }
+        else if (*q == '<') {
+            q = strsep(&p, "<");
+            p += strspn(p, " \t");
+            q = strsep(&p, " \t");
+            in_fd = open(q, O_RDONLY);
+            if (in_fd < 0) {
+                perror("open");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if (*q == '>') {
+            q = strsep(&p, ">");
+            p += strspn(p, " \t");
+            q = strsep(&p, " \t");
+            out_fd = open(q, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (out_fd < 0) {
+                perror("open");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if (*q == '|') {
+            q = strsep(&p, "|");
+            pipe_found = true;
+            break;
+        }
+
     } while (p);
+
     argv[argc] = NULL;
-    /*
-     * argv에 저장된 명령어를 실행한다.
-     */
-    if (argc > 0)
-        execvp(argv[0], argv);    
+
+    if (pipe_found) {
+        if (pipe(pipefd) < 0) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+    else if (pid == 0) {
+        if (in_fd != -1) {
+            dup2(in_fd, STDIN_FILENO);
+            close(in_fd);
+        }
+        if (out_fd != -1 && !pipe_found) {
+            dup2(out_fd, STDOUT_FILENO);
+            close(out_fd);
+        }
+        if (pipe_found) {
+            close(pipefd[0]);
+            dup2(pipefd[1], STDOUT_FILENO);
+            close(pipefd[1]);
+        }
+        execvp(argv[0], argv);
+        perror("execvp");
+        exit(EXIT_FAILURE);
+    }
+
+    if (in_fd != -1) {
+        close(in_fd);
+    } 
 }
 
 /*
@@ -101,8 +142,7 @@ int main(void)
         /*
          * 셸 프롬프트를 출력한다. 지연 출력을 방지하기 위해 출력버퍼를 강제로 비운다.
          */
-        printf("tsh> "); fflush(stdout);
-        /*
+        printf("tsh> "); fflush(stdout);반적으로 셸은 다음 명령어를 실행하기 전에 좀비 프
          * 표준 입력장치로부터 최대 MAX_LINE까지 명령어를 입력 받는다.
          * 입력된 명령어 끝에 있는 새줄문자를 널문자로 바꿔 C 문자열로 만든다.
          * 입력된 값이 없으면 새 명령어를 받기 위해 루프의 처음으로 간다.
