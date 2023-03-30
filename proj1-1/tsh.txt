@@ -1,0 +1,80 @@
+// 1
+
+bello@bello-System-Product-Name:~/git/23-1_OS/proj1-1$ sudo make
+gcc -Wall -O -c tsh.c
+gcc -o tsh tsh.o 
+bello@bello-System-Product-Name:~/git/23-1_OS/proj1-1$ sudo ./tsh.c
+sudo: ./tsh.c: command not found
+bello@bello-System-Product-Name:~/git/23-1_OS/proj1-1$ sudo ./tsh
+tsh> grep int tsh.c
+tsh>     int argc = 0;
+    int in_fd = -1, out_fd = -1;
+    int pipefd[2];
+int main(void)
+    int len;                    /* 입력된 명령어의 길이 */
+    int background;             /* 백그라운드 실행 유무 */
+            printf("[%d] + done\n", pid);
+        printf("tsh> "); fflush(stdout);
+
+tsh> grep "if.*NULL" tsh.c &
+tsh>         if (q == NULL || *q == ' ' || *q == '\t') {
+        if (p != NULL) {
+
+[3629] + done
+tsh> ps
+tsh>     PID TTY          TIME CMD
+   3624 pts/1    00:00:00 sudo
+   3625 pts/1    00:00:00 tsh
+   3635 pts/1    00:00:00 ps
+
+// 2
+
+tsh> grep "int " < tsh.c
+tsh>     int argc = 0;
+    int in_fd = -1, out_fd = -1;
+    int pipefd[2];
+int main(void)
+    int len;                    /* 입력된 명령어의 길이 */
+    int background;             /* 백그라운드 실행 유무 */
+
+tsh> ls -l
+tsh> total 2716
+-rw-rw-r-- 1 bello bello     408  3월 30 16:14 Makefile
+-rw-rw-r-- 1 bello bello 2739828  3월 30 12:47 proj1.pdf
+-rwxr-xr-x 1 root  root    17496  3월 30 16:20 tsh
+-rw-rw-r-- 1 bello bello    7238  3월 30 16:20 tsh.c
+-rw-r--r-- 1 root  root     5760  3월 30 16:20 tsh.o
+-rw-rw-r-- 1 bello bello       0  3월 30 16:11 tsh.txt
+
+tsh> ls -l > delme
+tsh> cat delme
+tsh> total 2716
+-rw-r--r-- 1 root  root        0  3월 30 16:22 delme
+-rw-rw-r-- 1 bello bello     408  3월 30 16:14 Makefile
+-rw-rw-r-- 1 bello bello 2739828  3월 30 12:47 proj1.pdf
+-rwxr-xr-x 1 root  root    17496  3월 30 16:20 tsh
+-rw-rw-r-- 1 bello bello    7238  3월 30 16:20 tsh.c
+-rw-r--r-- 1 root  root     5760  3월 30 16:20 tsh.o
+-rw-rw-r-- 1 bello bello       0  3월 30 16:11 tsh.txt
+
+tsh> sort < delme > delme2
+tsh> 
+tsh> cat delme2
+tsh> -rw-r--r-- 1 root  root        0  3월 30 16:22 delme
+-rw-r--r-- 1 root  root     5760  3월 30 16:20 tsh.o
+-rw-rw-r-- 1 bello bello       0  3월 30 16:11 tsh.txt
+-rw-rw-r-- 1 bello bello 2739828  3월 30 12:47 proj1.pdf
+-rw-rw-r-- 1 bello bello     408  3월 30 16:14 Makefile
+-rw-rw-r-- 1 bello bello    7238  3월 30 16:20 tsh.c
+-rwxr-xr-x 1 root  root    17496  3월 30 16:20 tsh
+total 2716
+
+// 3
+
+tsh> ps -A | grep -i system
+tsh> ps -A | grep -i system | awk ’{print $1,$4}’
+tsh> cat tsh.c | head -6 | tail -5 | head -1
+
+// 4
+
+tsh> sort < tsh.c | grep "int " | awk '{print $1, $2}' > delme3
