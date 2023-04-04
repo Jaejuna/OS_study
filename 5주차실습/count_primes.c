@@ -11,6 +11,7 @@
 #include <inttypes.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <omp.h> 
 
 #define GROUP 16            /* 스레드의 개수 = 검색 구간의 개수 */
 #define START 0x3B9ACA00    /* 검색 시작 값 */
@@ -20,7 +21,8 @@
  * count는 스레드 사이에서 공유하는 변수로 소수의 개수를 누적하기 위해 사용한다.
  * 원자변수는 그 값을 원자적으로 변경하기 위해 사용한다. 자세한 것은 6장에서 배운다.
  */
-atomic_int count;
+int count;
+pthread_mutex_t count_mutex;
 
 /*
  * n이 소수인지 판별하는 매우 *비효율적인* 함수로 일부러 시간을 끌기 위해 만들었다.
@@ -49,9 +51,13 @@ void *foo(void *arg)
 {
     int i = *(int *)arg;
 
-    for (int n = START+i*SPAN; n < START+(i+1)*SPAN; ++n)
-        if (isprime(n))
+    for (int n = START+i*SPAN; n < START+(i+1)*SPAN; ++n) {
+        if (isprime(n)) {
+            pthread_mutex_lock(&count_mutex);
             ++count;
+            pthread_mutex_unlock(&count_mutex);
+        }
+    }
     pthread_exit(NULL);
 }
 
@@ -89,12 +95,25 @@ int main(void)
      * 결과적으로 병렬 계산이 이루어져 순차방식보다 빠르게 계산할 수 있다.
      */
     gettimeofday(&start, NULL);
-    printf("순차 계산...\n");
+    printf("병렬 계산 (다중 스레드)...\n");
+    
+    count = 0; // Initialize the count variable
+    pthread_mutex_init(&count_mutex, NULL); // Initialize the mutex
 
+    for (i = 0; i < GROUP; ++i) {
+        arg[i] = i;
+        pthread_create(&tid[i], NULL, foo, &arg[i]);
+    }
+
+    for (i = 0; i < GROUP; ++i) {
+        pthread_join(tid[i], NULL);
+    }
+
+    pthread_mutex_destroy(&count_mutex); // Destroy the mutex
     gettimeofday(&end, NULL);
-    elapsed = (double)(end.tv_sec - start.tv_sec)+(double)(end.tv_usec - start.tv_usec)*1e-6;
+    elapsed = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_usec - start.tv_usec) * 1e-6;
     printf("소수 개수 %d개\n실행 시간: %.4f초\n---\n", count, elapsed);
-
+    
     /*
      * Task 2
      *
@@ -104,9 +123,20 @@ int main(void)
      */
     gettimeofday(&start, NULL);
     printf("병렬 계산 (OpenMP)...\n");
-    
+
+    atomic_init(&count, 0); // Initialize the atomic variable
+
+    #pragma omp parallel for schedule(dynamic)
+    for (i = 0; i < GROUP; ++i) {
+        for (int n = START + i * SPAN; n < START + (i + 1) * SPAN; ++n) {
+            if (isprime(n)) {
+                atomic_fetch_add(&count, 1);
+            }
+        }
+    }
+
     gettimeofday(&end, NULL);
-    elapsed = (double)(end.tv_sec - start.tv_sec)+(double)(end.tv_usec - start.tv_usec)*1e-6;
+    elapsed = (double)(end.tv_sec - start.tv_sec) + (double)(end.tv_usec - start.tv_usec) * 1e-6;
     printf("소수 개수 %d개\n실행 시간: %.4f초\n---\n", count, elapsed);
 
     return 0;
