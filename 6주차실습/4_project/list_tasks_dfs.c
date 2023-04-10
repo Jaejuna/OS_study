@@ -11,8 +11,8 @@ void dfs(struct task_struct *task) {
   /* list_for_each 사용할 경우 */
 
   /* list_for_each_entry 사용할 경우 */
-  list_for_each_entry( /*  1) 빈칸 채우기   */ ) { 
-    dfs( /* 2) 빈칸 채우기  */ ); 
+  list_for_each_entry( cursor, &task->children, sibling) { 
+    dfs(cursor); 
     }
 }
 
