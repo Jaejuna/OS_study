@@ -22,22 +22,47 @@ int sudoku[9][9] = {{6,3,9,8,4,1,2,7,5},{7,2,4,9,5,3,1,6,8},{1,8,5,7,2,6,3,9,4},
  */
 bool valid[3][9];
 
+pthread_t threads[11];
 /*
  * 스도쿠 퍼즐의 각 행이 올바른지 검사한다.
  * 행 번호는 0부터 시작하며, i번 행이 올바르면 valid[0][i]에 true를 기록한다.
  */
-void *check_rows(void *arg)
-{
-    // 여기를 완성하세요
+void *check_rows(void *arg) {
+    for (int i = 0; i < 9; ++i) {
+        bool used_numbers[10] = {false};
+        for (int j = 0; j < 9; ++j) {
+            int num = sudoku[i][j];
+            if (used_numbers[num]) {
+                valid[0][i] = false;
+                break;
+            } else {
+                used_numbers[num] = true;
+                valid[0][i] = true;
+            }
+        }
+    }
+    pthread_exit(NULL);
 }
 
 /*
  * 스도쿠 퍼즐의 각 열이 올바른지 검사한다.
  * 열 번호는 0부터 시작하며, j번 열이 올바르면 valid[1][j]에 true를 기록한다.
  */
-void *check_columns(void *arg)
-{
-    // 여기를 완성하세요
+void *check_columns(void *arg) {
+    for (int j = 0; j < 9; ++j) {
+        bool used_numbers[10] = {false};
+        for (int i = 0; i < 9; ++i) {
+            int num = sudoku[i][j];
+            if (used_numbers[num]) {
+                valid[1][j] = false;
+                break;
+            } else {
+                used_numbers[num] = true;
+                valid[1][j] = true;
+            }
+        }
+    }
+    pthread_exit(NULL);
 }
 
 /*
@@ -45,10 +70,29 @@ void *check_columns(void *arg)
  * 3x3 서브그리드 번호는 0부터 시작하며, 왼쪽에서 오른쪽으로, 위에서 아래로 증가한다.
  * k번 서브그리드가 올바르면 valid[2][k]에 true를 기록한다.
  */
-void *check_subgrid(void *arg)
-{
-    // 여기를 완성하세요
+void *check_subgrid(void *arg) {
+    int k = *((int *)arg);
+    int row_start = (k / 3) * 3;
+    int col_start = (k % 3) * 3;
+
+    bool used_numbers[10] = {false};
+
+    for (int i = row_start; i < row_start + 3; ++i) {
+        for (int j = col_start; j < col_start + 3; ++j) {
+            int num = sudoku[i][j];
+            if (used_numbers[num]) {
+                valid[2][k] = false;
+                pthread_exit(NULL);
+            } else {
+                used_numbers[num] = true;
+            }
+        }
+    }
+
+    valid[2][k] = true;
+    pthread_exit(NULL);
 }
+
 
 /*
  * 스도쿠 퍼즐이 올바르게 구성되어 있는지 11개의 스레드를 생성하여 검증한다.
@@ -71,20 +115,38 @@ void check_sudoku(void)
     /*
      * 스레드를 생성하여 각 행을 검사하는 check_rows() 함수를 실행한다.
      */
-    // 여기를 완성하세요
+    if (pthread_create(&threads[0], NULL, check_rows, NULL) != 0) {
+        fprintf(stderr, "pthread_create error: check_rows\n");
+        exit(-1);
+    }
     /*
      * 스레드를 생성하여 각 열을 검사하는 check_columns() 함수를 실행한다.
      */
-    // 여기를 완성하세요
+    if (pthread_create(&threads[1], NULL, check_columns, NULL) != 0) {
+        fprintf(stderr, "pthread_create error: check_columns\n");
+        exit(-1);
+    }
     /*
      * 9개의 스레드를 생성하여 각 3x3 서브그리드를 검사하는 check_subgrid() 함수를 실행한다.
      * 3x3 서브그리드의 위치를 식별할 수 있는 값을 함수의 인자로 넘긴다.
      */
-    // 여기를 완성하세요
+    int grid_indices[9];
+    for (i = 0; i < 9; ++i) {
+        grid_indices[i] = i;
+        if (pthread_create(&threads[i + 2], NULL, check_subgrid, (void *)&grid_indices[i]) != 0) {
+            fprintf(stderr, "pthread_create error: check_subgrid\n");
+            exit(-1);
+        }
+    }
     /*
      * 11개의 스레드가 종료할 때까지 기다린다.
      */
-    // 여기를 완성하세요
+    for (i = 0; i < 11; ++i) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            fprintf(stderr, "pthread_join error\n");
+            exit(-1);
+        }
+    }
     /*
      * 각 행에 대한 검증 결과를 출력한다.
      */
