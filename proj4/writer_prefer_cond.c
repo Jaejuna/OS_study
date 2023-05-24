@@ -19,7 +19,7 @@
 #define NREAD 20
 #define NWRITE 5
 #define RUNTIME 200000000L
-#define SLEEPTIME 100000
+#define SLEEPTIME 100000000L 
 
 char *img1[L1] = {
     "\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x4D\x4D\x51\x4F\x4F\x36\x4F\x49\x4F\x51\x36\x4F\x51\x4D\x51\x4F\x49\x49\x4F\x4F\x36\x49\x4F\x49\x49\x49\x4F\x7C\x21\x5E\x49\x5E\x36\x49\x7C\x49\x7C\x36\x49\x36\x49\x4D\x4F\x4D\x4D\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51\x4D\x51",
@@ -366,6 +366,12 @@ char *img5[L5] = {
  * alive 값이 false가 되면 무한 루프를 빠져나와 스레드를 자연스럽게 종료한다.
  */
 bool alive = true;
+pthread_mutex_t rmutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t wmutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t readPhase = PTHREAD_COND_INITIALIZER;
+pthread_cond_t writePhase = PTHREAD_COND_INITIALIZER;
+int readcount = 0;
+int writecount = 0;
 
 /*
  * Reader 스레드는 같은 문자를 L0번 출력한다. 예를 들면 <AAA...AA> 이런 식이다.
@@ -373,28 +379,26 @@ bool alive = true;
  * 단일 reader라면 <AAA...AA>처럼 같은 문자만 출력하겠지만, critical section에서 reader의
  * 중복을 허용하기 때문에 reader가 많아지면 출력이 어지럽게 섞여서 나오는 것이 정상이다.
  */
-void *reader(void *arg)
-{
+void *reader(void *arg) {
     int id, i;
-
-    /*
-     * 들어온 인자를 통해 출력할 문자의 종류를 정한다.
-     */
     id = *(int *)arg;
-    /*
-     * 스레드가 살아 있는 동안 같은 문자열 시퀀스 <XXX...XX>를 반복해서 출력한다.
-     */
     while (alive) {
-        /*
-         * Begin Critical Section
-         */
+        pthread_mutex_lock(&rmutex);
+        while (writecount > 0)
+            pthread_cond_wait(&readPhase, &rmutex);
+        readcount++;
+        pthread_mutex_unlock(&rmutex);
+
         printf("<");
         for (i = 0; i < L0; ++i)
             printf("%c", 'A'+id);
         printf(">");
-        /* 
-         * End Critical Section
-         */
+
+        pthread_mutex_lock(&rmutex);
+        readcount--;
+        if (readcount == 0)
+            pthread_cond_signal(&writePhase);
+        pthread_mutex_unlock(&rmutex);
     }
     pthread_exit(NULL);
 }
@@ -405,55 +409,35 @@ void *reader(void *arg)
  * Writer가 critical section에 있으면 다른 writer는 물론이고 어떠한 reader도 들어올 수 없다.
  * 만일 이것을 어기고 다른 writer나 reader가 들어왔다면 얼굴 이미지가 깨져서 쉽게 감지된다.
  */
-void *writer(void *arg)
-{
+void *writer(void *arg) {
     int id, i;
+    id = *(int *)arg;
     struct timespec req;
 
-    /*
-     * 들어온 인자를 통해 얼굴 이미지의 종류를 정한다.
-     * 랜덤 생성기의 시드 값을 현재 시간으로 초기화한다.
-     */
-    id = *(int *)arg;
     srand(time(NULL));
-    /*
-     * 스레드가 살아 있는 동안 같은 이미지를 반복해서 출력한다.
-     */
     while (alive) {
-        /*
-         * Begin Critical Section
-         */
+        pthread_mutex_lock(&wmutex);
+        writecount++;
+
+        while (readcount > 0)
+            pthread_cond_wait(&writePhase, &wmutex);
+
         printf("\n");
         switch (id) {
             case 0:
                 for (i = 0; i < L1; ++i)
                     printf("%s\n", img1[i]);
                 break;
-            case 1:
-                for (i = 0; i < L2; ++i)
-                    printf("%s\n", img2[i]);
-                break;
-            case 2:
-                for (i = 0; i < L3; ++i)
-                    printf("%s\n", img3[i]);
-                break;
-            case 3:
-                for (i = 0; i < L4; ++i)
-                    printf("%s\n", img4[i]);
-                break;
-            case 4:
-                for (i = 0; i < L5; ++i)
-                    printf("%s\n", img5[i]);
-                break;
-            default:
-                ;
         }
-        /* 
-         * End Critical Section
-         */
-        /*
-         * 이미지 출력 후 SLEEPTIME 나노초 안에서 랜덤하게 쉰다.
-         */
+
+        writecount--;
+        if (writecount > 0)
+            pthread_cond_signal(&writePhase);
+        else
+            pthread_cond_broadcast(&readPhase);
+
+        pthread_mutex_unlock(&wmutex);
+
         req.tv_sec = 0;
         req.tv_nsec = rand() % SLEEPTIME;
         nanosleep(&req, NULL);
@@ -509,5 +493,8 @@ int main(void)
     for (i = 0; i < NWRITE; ++i)
         pthread_join(wthid[i], NULL);
     
+    pthread_mutex_destroy(&rmutex);
+    pthread_mutex_destroy(&wmutex);
+
     return 0;
 }
