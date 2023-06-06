@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 
-// Function to find the page in frames
+// 페이지내에 프레임 찾는 함수
 int find(int page, int frames[], int n_frames) {
     for (int i = 0; i < n_frames; i++)
         if (page == frames[i])
@@ -10,7 +10,7 @@ int find(int page, int frames[], int n_frames) {
     return 0;
 }
 
-// Function to find the frame that will not be used for the longest duration
+//가장 오래 사용되지 않은 프레임 찾는 함수
 int predict(int page_reference[], int frames[], int n_frames, int page_number, int n_pages) {
     int res = -1, farthest = page_number;
     for (int i = 0; i < n_frames; i++) {
@@ -25,12 +25,12 @@ int predict(int page_reference[], int frames[], int n_frames, int page_number, i
             }
         }
 
-        // If a page is never referenced in future, return it.
+        // 페이지가 미래에 사용되지 않을 시 반환
         if (j == n_pages)
             return i;
     }
 
-    // If all of the frames were not in the future, return any of them
+    // 모든 프레임이 사용되지 않을 경우 아무거나 반환
     if (res == -1)
         return 0;
     else
@@ -43,13 +43,13 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Initialize number of frames
+    // 프레임 수 선언
     int n_frames = atoi(argv[1]);
     int frames[n_frames];
     for (int i = 0; i < n_frames; i++)
         frames[i] = -1;
 
-    // Page numbers range from 0 to 9
+    // 페이지 수 범위 0~9
     int n_pages = 20;
     int page_reference[n_pages];
     for (int i = 0; i < n_pages; i++)
@@ -60,10 +60,10 @@ int main(int argc, char *argv[]) {
         printf("%d ", page_reference[i]);
     printf("\n");
 
-    // Count the number of page faults
+    // 페이지 fault count
     int page_faults = 0;
 
-    // Start the OPT algorithm
+    // OPT 알고리즘
     for (int i = 0; i < n_pages; i++) {
         if (!find(page_reference[i], frames, n_frames)) {
             int j = predict(page_reference, frames, n_frames, i + 1, n_pages);

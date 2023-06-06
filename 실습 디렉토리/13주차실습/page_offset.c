@@ -1,27 +1,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define PAGE_SIZE 4096   // Define the size of a page to be 4KB
+#define PAGE_SIZE 4096   // 페이지 크기 정의 4KB
 
 int main(int argc, char *argv[]) {
 
-    // Check for correct number of arguments
+    // 인자(주소) 체크
     if (argc != 2) {
         fprintf(stderr, "Usage: ./address_translation <virtual address>\n");
         return -1;
     }
 
-    // Convert command line argument to a number
+    // CLI 인자 숫자로 변환
     unsigned int address = atoi(argv[1]);
 
-    // Calculate the page number and offset for a 4KB page size
-    // The page number is the quotient of the division operation
+    // 페이지 사이즈의 offset과 페이지 수 계산
+    // 페이지 수 계산
     unsigned int page_number = address / PAGE_SIZE;
 
-    // The offset is the remainder of the division operation
+    // offset 계산
     unsigned int offset = address % PAGE_SIZE;
 
-    // Print the results
     printf("The address %d contains:\n", address);
     printf("page number = %d\n", page_number);
     printf("offset = %d\n", offset);
