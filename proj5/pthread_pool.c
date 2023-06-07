@@ -14,7 +14,31 @@
  */
 static void *worker(void *param)
 {
-    // 여기를 완성하세요
+    pthread_pool_t *pool = (pthread_pool_t *)param;
+
+    while (true) {
+        pthread_mutex_lock(&(pool->mutex));
+
+        while (pool->q_len == 0 && pool->running) {
+            pthread_cond_wait(&(pool->empty), &(pool->mutex));
+        }
+
+        if (!pool->running) {
+            pthread_mutex_unlock(&(pool->mutex));
+            pthread_exit(NULL);
+        }
+
+        task_t task = pool->q[pool->q_front];
+        pool->q_front = (pool->q_front + 1) % pool->q_size;
+        pool->q_len--;
+
+        pthread_cond_signal(&(pool->full));
+
+        pthread_mutex_unlock(&(pool->mutex));
+
+        (*(task.function))(task.param);
+    }
+    pthread_exit(NULL);
 }
 
 /*
@@ -29,7 +53,31 @@ static void *worker(void *param)
  */
 int pthread_pool_init(pthread_pool_t *pool, size_t bee_size, size_t queue_size)
 {
-    // 여기를 완성하세요
+    if (bee_size > POOL_MAXBSIZE || queue_size > POOL_MAXQSIZE) {
+        return POOL_FAIL;
+    }
+
+    pool->running = true;
+    pool->q = malloc(sizeof(task_t) * queue_size);
+    pool->q_size = queue_size;
+    pool->q_front = 0;
+    pool->q_len = 0;
+    pool->bee = malloc(sizeof(pthread_t) * bee_size);
+    pool->bee_size = bee_size;
+
+    if (pthread_mutex_init(&(pool->mutex), NULL) ||
+        pthread_cond_init(&(pool->full), NULL) ||
+        pthread_cond_init(&(pool->empty), NULL)) {
+        return POOL_FAIL;
+    }
+
+    for (int i = 0; i < bee_size; i++) {
+        if (pthread_create(&(pool->bee[i]), NULL, worker, pool)) {
+            return POOL_FAIL;
+        }
+    }
+
+    return POOL_SUCCESS;
 }
 
 /*
@@ -40,8 +88,29 @@ int pthread_pool_init(pthread_pool_t *pool, size_t bee_size, size_t queue_size)
  */
 int pthread_pool_submit(pthread_pool_t *pool, void (*f)(void *p), void *p, int flag)
 {
-    // 여기를 완성하세요
+    pthread_mutex_lock(&(pool->mutex));
+
+    while (pool->q_len == pool->q_size && pool->running && flag == POOL_WAIT) {
+        pthread_cond_wait(&(pool->full), &(pool->mutex));
+    }
+
+    if (pool->q_len == pool->q_size || !pool->running) {
+        pthread_mutex_unlock(&(pool->mutex));
+        return POOL_FULL;
+    }
+
+    int next = (pool->q_front + pool->q_len) % pool->q_size;
+    pool->q[next].function = f;
+    pool->q[next].param = p;
+    pool->q_len++;
+
+    pthread_cond_signal(&(pool->empty));
+
+    pthread_mutex_unlock(&(pool->mutex));
+
+    return POOL_SUCCESS;
 }
+
 
 /*
  * 스레드풀을 종료한다. 일꾼 스레드가 현재 작업 중이면 그 작업을 마치게 한다.
@@ -54,5 +123,28 @@ int pthread_pool_submit(pthread_pool_t *pool, void (*f)(void *p), void *p, int f
  */
 int pthread_pool_shutdown(pthread_pool_t *pool, int how)
 {
-    // 여기를 완성하세요
+    pthread_mutex_lock(&(pool->mutex));
+
+    pool->running = false;
+
+    if (how == POOL_DISCARD) {
+        pool->q_len = 0;
+    }
+
+    pthread_cond_broadcast(&(pool->empty));
+    pthread_cond_broadcast(&(pool->full));
+
+    pthread_mutex_unlock(&(pool->mutex));
+
+    for (int i = 0; i < pool->bee_size; i++) {
+        pthread_join(pool->bee[i], NULL);
+    }
+
+    free(pool->bee);
+    free(pool->q);
+    pthread_cond_destroy(&(pool->empty));
+    pthread_cond_destroy(&(pool->full));
+    pthread_mutex_destroy(&(pool->mutex));
+
+    return POOL_SUCCESS;
 }
