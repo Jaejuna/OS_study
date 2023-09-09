@@ -1,2 +1,11 @@
-# 23-1_OS
-23년 1학기 운영체제론 수업
+# OS_study
+
+#### 운영체제 공부 and 구현 자료 저장소
+
+(working on it)
+.
+├── OS_classArchive
+    └── Univ. Classs files
+├── README.md
+└── boaz_OS_study
+    └── Boaz Study files
