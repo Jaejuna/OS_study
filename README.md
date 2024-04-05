@@ -9,3 +9,7 @@
 ├── README.md
 └── boaz_OS_study
     └── Boaz Study files
+
+gcc hello.c -o hello
+./hello
+Hello, world!
