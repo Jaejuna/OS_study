@@ -1,7 +1,7 @@
 // 부모 프로세스와 자식 프로세스 예시
 #include <stdio.h>  // 표준 입출력 함수를 사용하기 위한 헤더 파일
 #include <unistd.h> // UNIX 표준 시스템 호출을 위한 헤더 파일
-#include <wait.h>   // wait() 함수를 사용하기 위한 헤더 파일
+#include <sys/wait.h>   // wait() 함수를 사용하기 위한 헤더 파일
 
 int main()
 {
